@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Versão no rodapé
+        run: sed -i "s/__VERSION__/$(date -u +%Y-%m-%d) · ${GITHUB_SHA::7}/" site/*/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with: {path: site}

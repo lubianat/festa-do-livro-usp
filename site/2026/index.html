@@ -87,6 +87,7 @@ mark{background:#fff3a8;color:inherit}
 .pubrow .p{font-size:15px;font-weight:700;color:var(--blue)}
 #olbox{max-width:520px;width:calc(100% - 32px);border:1px solid var(--line);border-radius:4px;background:var(--bg,#fff);color:inherit}
 .olf{display:grid;grid-template-columns:70px 1fr auto;gap:8px;align-items:center;margin:8px 0}.olf input{min-width:0;padding:6px}
+.addcv{display:block;margin:6px auto 0;background:none;border:0;color:var(--link);text-decoration:underline;font:inherit;font-size:12px;cursor:pointer}
 .favsum{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:10px 12px;margin-top:12px;background:var(--soft);border:1px solid var(--line);font-size:14px}
 .favsum button{margin-left:auto;min-height:30px;font-size:13px}
 footer{max-width:860px;margin:0 auto;padding:16px 16px 40px;font-size:12px;color:var(--mute);border-top:1px solid var(--line)}
@@ -147,7 +148,7 @@ footer p{margin:0 0 6px}
 <section class="pubhead" id="ph"></section>
 <main id="g"><p class="empty">Carregando catálogo…</p></main>
 <button id="totop" class="totop" hidden aria-label="Voltar ao topo">↑ topo</button>
-<footer><p><b>Edição 2026</b> (28ª Festa do Livro da USP) · <a href="../">outras edições</a></p><p>Código e dados: <a href="https://github.com/lubianat/festa-do-livro-usp">github.com/lubianat/festa-do-livro-usp</a> · projeto independente, não oficial.</p><p>Instale no celular: no menu do navegador, “Adicionar à tela inicial” — funciona offline (as capas só aparecem com internet). Capas: Open Library (e Google Books quando a Open Library não tem). Viu um livro sem capa? Adicione na Open Library (precisa de conta gratuita) pelo link na página do livro, e ela aparece aqui.</p><p>Dados lidos das listas de preços em PDF que as editoras publicaram no site da Festa (nov/2026).</p><p>A leitura é automática: confira título e preço no PDF da editora antes de ir ao estande. "Preço de capa" indica listas que não informam o valor com desconto.</p><p>A busca por tema compara o significado das palavras do título e do assunto (vetores de palavras em português do spaCy), então também encontra livros que não usam exatamente as palavras buscadas.</p></footer>
+<footer><p><b>28ª Festa do Livro da USP · 2026</b> · <a href="../">outras edições</a> · projeto independente, não oficial · <a href="https://github.com/lubianat/festa-do-livro-usp">código e dados</a> · versão <span id="ver">__VERSION__</span></p><p>Dados lidos automaticamente dos PDFs das editoras (nov/2026): confira preço no PDF antes de ir ao estande. Capas: Open Library e Google Books. Funciona offline: “Adicionar à tela inicial”.</p></footer>
 <script>
 {
 const $=id=>document.getElementById(id);
@@ -174,7 +175,7 @@ let semOnly=false;const TEMAS=['ditadura','feminismo','racismo','mitologia','fil
 const CV={};try{Object.assign(CV,JSON.parse(localStorage.getItem('festa-cv')||'{}'))}catch(e){}
 let cvSave=null;const cvStore=()=>{clearTimeout(cvSave);cvSave=setTimeout(()=>{try{localStorage.setItem('festa-cv',JSON.stringify(CV))}catch(e){}},1500)};
 // no cover: on the detail page, invite the visitor to add it on Open Library
-const noCover=(i,big)=>big&&i?`sem capa<a class="addcv" data-cv="${esc(i)}" href="https://openlibrary.org/isbn/${encodeURIComponent(i)}" target="_blank" rel="noopener">adicionar na Open Library</a>`:'sem capa';
+const noCover=(i,big)=>big&&i?`sem capa<button class="addcv" data-cv="${esc(i)}">adicionar capa na Open Library</button>`:'sem capa';
 function coverTag(b,big){const c=big?'cv big':'cv';
   if(!b.i||CV[b.i]==='')return `<div class="${c}">${noCover(b.i,big)}</div>`;
   const src=CV[b.i]||`https://covers.openlibrary.org/b/isbn/${encodeURIComponent(b.i)}-M.jpg?default=false`;
@@ -197,20 +198,21 @@ async function coverFail0(img){const i=img.dataset.isbn,st=img.dataset.st;let ok
       if(u)return set(u.replace(/^http:/,'https:').replace('&edge=curl',''),'g')}catch(e){ok=false}}
   if(ok&&st!=='g')CV[i]='';else delete CV[i];cvStore();
   const d=document.createElement('div');d.className=img.className;d.innerHTML=noCover(i,img.classList.contains('big'));img.replaceWith(d)}
-// after adding a cover on OL, forget our cached "sem capa" so the next visit re-checks
-// if OL has no edition for this ISBN, send the visitor to a prefilled "add book" form instead
-// ponytail: prefill param names follow OL's /books/add form; unknown ones are just ignored
-document.addEventListener('click',e=>{const a=e.target.closest('a.addcv');if(!a)return;const i=a.dataset.cv;delete CV[i];cvStore();
-  e.preventDefault();const w=window.open('about:blank','_blank');const b=R[bookIx]||{};
-  // try the ISBN; 404 -> blank add form + a box here to copy each field (OL's /books/add ignores prefill params)
-  const add='https://openlibrary.org/books/add';
-  fetch('https://openlibrary.org/isbn/'+encodeURIComponent(i)+'.json',{signal:AbortSignal.timeout(8000)}).then(r=>r.status===404?add:a.href,()=>a.href).then(u=>{if(w)w.location=u;else location.href=u;if(u===add)olBox(b,i)})});
+// "adicionar capa": popover checks the ISBN on OL; found -> its add-cover page, 404 -> fields to copy + add-book form
+// (OL's /books/add ignores prefill params). Forget our cached "sem capa" so the next visit re-checks.
+document.addEventListener('click',e=>{const a=e.target.closest('.addcv');if(!a)return;const i=a.dataset.cv;delete CV[i];cvStore();olBox(R[bookIx]||{},i)});
 function olBox(b,i){let d=$('olbox');if(!d){d=document.createElement('dialog');d.id='olbox';document.body.append(d)}
-  const f=[['Título',b.t],['Autor',b.a],['Editora',(P[b.p]||{}).n],['ISBN',i]].filter(x=>x[1]);
-  d.innerHTML=`<p style="margin-top:0"><b>A Open Library ainda não tem este livro.</b> Abrimos o formulário em outra aba; copie cada campo daqui. O ano de publicação está no próprio livro ou no PDF da editora.</p>`+
-    f.map(([k,v])=>`<div class="olf"><span class="lab">${k}</span><input readonly value="${esc(v)}"><button class="cpf">copiar</button></div>`).join('')+
-    `<p style="margin-bottom:0"><a href="${esc(add)}" target="_blank" rel="noopener">abrir o formulário de novo ↗</a> <button class="back" id="olx" style="float:right">fechar</button></p>`;
-  d.showModal()}
+  const x=`<button class="back" id="olx" style="float:right">fechar</button>`,isbnPg='https://openlibrary.org/isbn/'+encodeURIComponent(i);
+  d.innerHTML=`<p style="margin:0">Procurando o ISBN ${esc(i)} na Open Library…</p>${x}`;d.showModal();
+  fetch(isbnPg+'.json',{signal:AbortSignal.timeout(8000)}).then(r=>{
+    if(r.status===404){const add='https://openlibrary.org/books/add',f=[['Título',b.t],['Autor',b.a],['Editora',(P[b.p]||{}).n],['ISBN',i]].filter(x=>x[1]);
+      d.innerHTML=`<p style="margin-top:0"><b>A Open Library ainda não tem este livro.</b> Cadastre-o (precisa de conta gratuita) copiando os campos abaixo; o ano de publicação está no livro ou no PDF da editora. Depois, adicione a capa na página do livro.</p>`+
+        f.map(([k,v])=>`<div class="olf"><span class="lab">${k}</span><input readonly value="${esc(v)}"><button class="cpf">copiar</button></div>`).join('')+
+        `<p style="margin-bottom:0"><a href="${add}" target="_blank" rel="noopener">abrir o formulário da Open Library ↗</a>${x}</p>`;return}
+    const m=r.ok&&r.url.match(/\/books\/(OL\d+M)/);
+    const u=m?`https://openlibrary.org/books/${m[1]}/add-cover`:isbnPg;
+    d.innerHTML=`<p style="margin-top:0">${m?'A Open Library já tem este livro, só falta a capa.':'Não consegui verificar agora.'}</p><p style="margin-bottom:0"><a href="${u}" target="_blank" rel="noopener">${m?'adicionar a capa na Open Library ↗':'abrir na Open Library ↗'}</a>${x}</p>`
+  },()=>{d.innerHTML=`<p style="margin-top:0">A Open Library não respondeu. Tente mais tarde ou <a href="${isbnPg}" target="_blank" rel="noopener">abra a página do ISBN ↗</a>.</p>${x}`})}
 document.addEventListener('click',e=>{if(e.target.id==='olx')$('olbox').close();
   if(e.target.classList.contains('cpf')){const t=e.target,v=t.previousElementSibling.value;try{navigator.clipboard.writeText(v).then(()=>{t.textContent='copiado ✓';setTimeout(()=>t.textContent='copiar',1200)})}catch(err){t.previousElementSibling.select()}}});
 document.addEventListener('load',e=>{const t=e.target;if(t.tagName==='IMG'&&t.dataset.isbn&&t.dataset.st==='ol'&&t.naturalWidth>2){CV[t.dataset.isbn]=t.src;cvStore()}},true);
@@ -354,7 +356,7 @@ function renderBook(){
     ${b.s?`<div><span class="lab">Assunto </span>${esc(b.s)}</div>`:''}
     ${b.i?`<div><span class="lab">ISBN </span><button class="cp" data-i="${esc(b.i)}">${esc(b.i)}</button></div>`:''}</div>
     <div class="big">${tagHTML(b)}${b.d?` <span class="s">${Math.round(b.d*100)}% de desconto na Festa</span>`:''}</div>
-    <div class="lk">${b.i?`<a class="addcv" data-cv="${esc(b.i)}" href="https://openlibrary.org/isbn/${encodeURIComponent(b.i)}" target="_blank" rel="noopener">ver na Open Library ↗</a>`:''}<a href="${esc(az)}" target="_blank" rel="noopener">buscar na Amazon ↗</a>${/^https?:/.test(b.u)?`<a href="${esc(b.u)}" target="_blank" rel="noopener">página do livro ↗</a>`:''}<a href="${esc(p.pdf)}" target="_blank" rel="noopener">lista de preços (PDF) ↗</a></div>
+    <div class="lk">${b.i?`<a href="https://openlibrary.org/isbn/${encodeURIComponent(b.i)}" target="_blank" rel="noopener">ver na Open Library ↗</a>`:''}<a href="${esc(az)}" target="_blank" rel="noopener">buscar na Amazon ↗</a>${/^https?:/.test(b.u)?`<a href="${esc(b.u)}" target="_blank" rel="noopener">página do livro ↗</a>`:''}<a href="${esc(p.pdf)}" target="_blank" rel="noopener">lista de preços (PDF) ↗</a></div>
   </div><div>${n?`<p class="s" style="margin:0 0 6px;font-weight:700">Onde fica na Festa</p>`+mapHTML(n):''}</div></section>${sim}`;
   document.title=b.t+' · Festa do Livro USP 2026';
 }
