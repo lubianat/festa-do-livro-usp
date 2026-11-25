@@ -202,16 +202,16 @@ async function coverFail0(img){const i=img.dataset.isbn,st=img.dataset.st;let ok
 // (OL's /books/add ignores prefill params). Forget our cached "sem capa" so the next visit re-checks.
 document.addEventListener('click',e=>{const a=e.target.closest('.addcv');if(!a)return;const i=a.dataset.cv;delete CV[i];cvStore();olBox(R[bookIx]||{},i)});
 function olBox(b,i){let d=$('olbox');if(!d){d=document.createElement('dialog');d.id='olbox';document.body.append(d)}
-  const x=`<button class="back" id="olx" style="float:right">fechar</button>`,isbnPg='https://openlibrary.org/isbn/'+encodeURIComponent(i);
+  const az=` · <a href="https://www.amazon.com.br/s?k=${encodeURIComponent(i)}" target="_blank" rel="noopener">buscar na Amazon ↗</a>`,x=`<button class="back" id="olx" style="float:right">fechar</button>`,isbnPg='https://openlibrary.org/isbn/'+encodeURIComponent(i);
   d.innerHTML=`<p style="margin:0">Procurando o ISBN ${esc(i)} na Open Library…</p>${x}`;d.showModal();
   fetch(isbnPg+'.json',{signal:AbortSignal.timeout(8000)}).then(r=>{
     if(r.status===404){const add='https://openlibrary.org/books/add',f=[['Título',b.t],['Autor',b.a],['Editora',(P[b.p]||{}).n],['ISBN',i]].filter(x=>x[1]);
       d.innerHTML=`<p style="margin-top:0"><b>A Open Library ainda não tem este livro.</b> Cadastre-o (precisa de conta gratuita) copiando os campos abaixo; o ano de publicação está no livro ou no PDF da editora. Depois, adicione a capa na página do livro.</p>`+
         f.map(([k,v])=>`<div class="olf"><span class="lab">${k}</span><input readonly value="${esc(v)}"><button class="cpf">copiar</button></div>`).join('')+
-        `<p style="margin-bottom:0"><a href="${add}" target="_blank" rel="noopener">abrir o formulário da Open Library ↗</a>${x}</p>`;return}
+        `<p style="margin-bottom:0"><a href="${add}" target="_blank" rel="noopener">abrir o formulário da Open Library ↗</a>${az}${x}</p>`;return}
     const m=r.ok&&r.url.match(/\/books\/(OL\d+M)/);
     const u=m?`https://openlibrary.org/books/${m[1]}/add-cover`:isbnPg;
-    d.innerHTML=`<p style="margin-top:0">${m?'A Open Library já tem este livro, só falta a capa.':'Não consegui verificar agora.'}</p><p style="margin-bottom:0"><a href="${u}" target="_blank" rel="noopener">${m?'adicionar a capa na Open Library ↗':'abrir na Open Library ↗'}</a>${x}</p>`
+    d.innerHTML=`<p style="margin-top:0">${m?'A Open Library já tem este livro, só falta a capa.':'Não consegui verificar agora.'}</p><p style="margin-bottom:0"><a href="${u}" target="_blank" rel="noopener">${m?'adicionar a capa na Open Library ↗':'abrir na Open Library ↗'}</a>${az}${x}</p>`
   },()=>{d.innerHTML=`<p style="margin-top:0">A Open Library não respondeu. Tente mais tarde ou <a href="${isbnPg}" target="_blank" rel="noopener">abra a página do ISBN ↗</a>.</p>${x}`})}
 document.addEventListener('click',e=>{if(e.target.id==='olx')$('olbox').close();
   if(e.target.classList.contains('cpf')){const t=e.target,v=t.previousElementSibling.value;try{navigator.clipboard.writeText(v).then(()=>{t.textContent='copiado ✓';setTimeout(()=>t.textContent='copiar',1200)})}catch(err){t.previousElementSibling.select()}}});
