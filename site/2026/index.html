@@ -83,6 +83,8 @@ mark{background:#fff3a8;color:inherit}
 .favbig{min-height:32px;font-size:13px}.favbig.on{color:#b3261e;background:#fdecea;border-color:#f3c3bf}
 .h3{font:700 17px "Open Sans",Arial,sans-serif;margin:24px 0 0;padding-bottom:6px;border-bottom:2px solid var(--blue)}
 .grp{margin:20px 0 0;padding-bottom:4px;border-bottom:2px solid var(--blue);font-weight:700;display:flex;gap:8px;align-items:center}
+.pubrow{grid-column:1/-1;padding:6px 0;border-bottom:1px solid var(--line)}
+.pubrow .p{font-size:15px;font-weight:700;color:var(--blue)}
 .favsum{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:10px 12px;margin-top:12px;background:var(--soft);border:1px solid var(--line);font-size:14px}
 .favsum button{margin-left:auto;min-height:30px;font-size:13px}
 footer{max-width:860px;margin:0 auto;padding:16px 16px 40px;font-size:12px;color:var(--mute);border-top:1px solid var(--line)}
@@ -120,7 +122,7 @@ footer p{margin:0 0 6px}
 </style></head><body>
 <noscript><p style="padding:16px">Este catálogo precisa de JavaScript. As listas de preços originais estão em festadolivro.edusp.com.br.</p></noscript>
 <header class="tent"><div><h1>28ª Festa do Livro da USP <span class="yr">2026</span></h1><p class="sub">Catálogo · <span id="nb">…</span> livros · <span id="np">…</span> editoras</p></div>
-<button id="favbtn" class="favbtn" aria-label="Favoritos">Favoritos (<span id="favn">0</span>)</button></header>
+<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end"><button id="pubsbtn" class="favbtn">Editoras</button><button id="favbtn" class="favbtn" aria-label="Favoritos">Favoritos (<span id="favn">0</span>)</button></div></header>
 <div class="bar">
  <div class="row"><div class="qw"><input id="q" type="search" enterkeyhint="search" placeholder="Título, autor ou assunto" autocomplete="off" aria-label="Buscar"><button id="qx" aria-label="Limpar busca" hidden>×</button></div><button id="fltb" class="fltb" aria-expanded="false">Filtros</button></div>
 </div>
@@ -178,11 +180,15 @@ function coverTag(b,big){const c=big?'cv big':'cv';
 // covers: Open Library by ISBN -> Open Library search (cover of any edition of the work) -> Google Books -> "sem capa"
 // ponytail: a failed network call never caches "sem capa", so offline visits retry later
 const OLC=id=>`https://covers.openlibrary.org/b/id/${id}-M.jpg`;
-async function coverFail(img){const i=img.dataset.isbn,st=img.dataset.st;let ok=true;
+// ponytail: max 2 fallbacks in flight and OL search off after one failure, to go easy on OL; per-host limits if needed
+let OLDOWN=false,CFN=0;const CFQ=[];
+function coverFail(img){CFQ.push(img);cfNext()}
+function cfNext(){while(CFN<2&&CFQ.length){CFN++;coverFail0(CFQ.shift()).finally(()=>{CFN--;cfNext()})}}
+async function coverFail0(img){const i=img.dataset.isbn,st=img.dataset.st;let ok=true;
   const set=(u,s)=>{CV[i]=u;cvStore();img.dataset.st=s;img.src=u};
   if(st==='ol'){img.dataset.st='ols';
-    try{const j=await(await fetch('https://openlibrary.org/search.json?fields=cover_i&limit=1&isbn='+encodeURIComponent(i))).json();
-      const c=j.docs&&j.docs[0]&&j.docs[0].cover_i;if(c)return set(OLC(c),'ols')}catch(e){ok=false}}
+    if(OLDOWN)ok=false;else try{const j=await(await fetch('https://openlibrary.org/search.json?fields=cover_i&limit=1&isbn='+encodeURIComponent(i),{signal:AbortSignal.timeout(5000)})).json();
+      const c=j.docs&&j.docs[0]&&j.docs[0].cover_i;if(c)return set(OLC(c),'ols')}catch(e){ok=false;OLDOWN=true}}
   if(st==='ol'||st==='ols'){img.dataset.st='g';
     try{const j=await(await fetch('https://www.googleapis.com/books/v1/volumes?q=isbn:'+encodeURIComponent(i))).json();
       const l=j.items&&j.items[0]&&j.items[0].volumeInfo&&j.items[0].volumeInfo.imageLinks;let u=l&&(l.thumbnail||l.smallThumbnail);
@@ -233,6 +239,19 @@ function renderFavs(){
   for(const b of list){const n=PI[b.p]||0;if(n!==cur){cur=n;h+=`<div class="grp">${n?badge(b.p):'Sem lugar no mapa'}</div>`}h+=card(b)}
   $('g').innerHTML=`<p class="s" style="margin:12px 0 0">Organizado pela ordem do mapa — um roteiro pela Festa.</p>`+h}
 
+function renderPubs(){
+  $('ph').classList.remove('on');$('ph').innerHTML='';$('simbar').classList.remove('on');$('chips').innerHTML='';$('dym').innerHTML='';$('clr').hidden=true;$('cnt').textContent='';
+  document.title='Editoras · Festa do Livro USP 2026';
+  const ix=P.map((_,i)=>i).sort((a,b)=>(PI[a]||99)-(PI[b]||99)||P[a].n.localeCompare(P[b].n));let h='',cur=null;
+  for(const i of ix){const n=PI[i]||0;if(n!==cur){cur=n;h+=`<div class="grp">${n?badge(i):'Sem lugar no mapa'}</div>`}
+    h+=`<div class="pubrow"><button class="p" data-p="${i}">${esc(P[i].n)}</button> <span class="s">${P[i].mo?'sem lista de preços':P[i].c+' livros'}</span></div>`}
+  const sem=P.filter(p=>p.mo).length;
+  $('g').innerHTML=`<div class="favsum" style="display:block;line-height:1.5"><b>28ª Festa do Livro da USP</b> · 25 a 29 de novembro de 2026<br>
+    Quarta a sexta, 9h–21h · sábado e domingo, 9h–19h<br>
+    Tenda na Av. Prof. Mello Moraes, travessa C, Cidade Universitária (campus Butantã)<br>
+    <a href="https://festadolivro.edusp.com.br/" target="_blank" rel="noopener">Site oficial da Festa ↗</a><br>
+    <span class="s">Nem todas as editoras enviaram catálogo: ${sem} das ${P.length} ainda não têm lista de preços no site oficial, então os livros delas não aparecem na busca. Este é um projeto independente, não oficial.</span></div>
+    <p class="s" style="margin:12px 0 0">${P.length} editoras, na ordem do mapa. Toque numa editora para ver os livros e onde ela fica.</p>`+h}
 let P=[],R=[],VOC=null,res=[],shown=0,terms=[],subj='',SEM=null,simTo=null;const STEP=40;
 function lev(a,b,max){if(Math.abs(a.length-b.length)>max)return max+1;let p=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){const c=[i];let mn=i;for(let j=1;j<=b.length;j++){c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));if(c[j]<mn)mn=c[j]}if(mn>max)return max+1;p=c}return p[b.length]}
 function vocab(){if(VOC)return VOC;const m=new Map();for(const r of R)for(const w of (r.T+r.A+r.S).split(' '))if(w.length>=3)m.set(w,(m.get(w)||0)+1);VOC=[...m];return VOC}
@@ -305,6 +324,7 @@ function load(){fetch('data.json').then(r=>r.json()).then(d=>{
 }).catch(()=>{$('g').innerHTML='<p class="empty">Não foi possível carregar o catálogo.</p>'})}
 function fromHash(){const h=location.hash.slice(1);let m;
   if(h==='favoritos'){view='favs';bookIx=null;return}
+  if(h==='editoras'){view='pubs';bookIx=null;return}
   if((m=h.match(/^l(\d+)$/))&&R[+m[1]]){view='book';bookIx=+m[1];return}
   view='list';bookIx=null;m=h.match(/^e(\d+)$/);if(m&&P[+m[1]])PSET=new Set([+m[1]]);else if(PSET.size===1)PSET=new Set();syncPub()}
 function tagHTML(b){return b.v!=null?`<div class="tag"><b>${brl(b.v)}</b>${b.o?`<s>${brl(b.o)}</s>`:''}</div>`:b.o!=null?`<div class="tag capa"><small>preço de capa</small><b>${brl(b.o)}</b></div>`:`<div class="tag none">ver PDF</div>`}
@@ -331,6 +351,7 @@ function renderBook(){
 function run(){
   if(view==='book'){renderBook();return}
   if(view==='favs'){renderFavs();return}
+  if(view==='pubs'){renderPubs();return}
   document.title='Catálogo da 28ª Festa do Livro da USP (2026)';
   const raw=$('q').value;QUOTED=/["“”]/.test(raw);const qn=qnorm(raw.replace(/(\d)-(?=\d)/g,'$1'));
   let ws=qn.split(' ').filter(Boolean);const content=ws.filter(w=>!STOP.has(w)&&(w.length>1||/\d/.test(w)));if(content.length)ws=content;
@@ -417,7 +438,7 @@ function more(){const g=$('g');g.querySelector('.more')?.remove();
   if(!res.length){g.innerHTML=`<p class="empty">Nenhum livro encontrado${$('q').value?' para “'+esc($('q').value)+'”':''}. Tente menos palavras ou outra grafia.</p>`;return}
   g.insertAdjacentHTML('beforeend',res.slice(shown,shown+STEP).map(card).join(''));shown+=STEP;
   if(shown<res.length)g.insertAdjacentHTML('beforeend',`<button class="more">Mostrar mais (${(res.length-shown).toLocaleString('pt-BR')})</button>`)}
-const toList=()=>{if(view==='book'||view==='favs'){view='list';bookIx=null;history.replaceState(null,'',$('pub').value===''?location.pathname:'#e'+$('pub').value)}};
+const toList=()=>{if(view==='book'||view==='favs'||view==='pubs'){view='list';bookIx=null;history.replaceState(null,'',$('pub').value===''?location.pathname:'#e'+$('pub').value)}};
 let tm;const later=(ms)=>{clearTimeout(tm);tm=setTimeout(()=>{toList();subj='';simTo=null;run()},ms)};
 $('q').addEventListener('input',()=>later(semOnly?350:200));
 $('q').addEventListener('keydown',e=>{if(e.key==='Enter'){clearTimeout(tm);toList();subj='';run();$('q').blur()}});
@@ -442,6 +463,7 @@ $('tema').addEventListener('click',()=>{$('exact').checked=false;clearTimeout(tm
 $('temas').addEventListener('click',e=>{const t=e.target.closest('[data-t]');if(!t)return;$('q').value=t.dataset.t;toList();subj='';semOnly=true;run()});
 $('near').addEventListener('click',e=>{const n=e.target.closest('[data-n]');if(!n)return;$('q').value=($('q').value+' '+n.dataset.n).trim();semOnly=true;run()});
 $('favbtn').addEventListener('click',()=>{location.hash='favoritos'});
+$('pubsbtn').addEventListener('click',()=>{location.hash='editoras'});
 $('fltb').addEventListener('click',()=>{const f=$('flt'),o=f.hidden;f.hidden=!o;$('fltb').setAttribute('aria-expanded',String(o))});$('semon').addEventListener('change',run);
 $('simbar').addEventListener('click',e=>{if(e.target.id==='simx'){simTo=null;run()}});
 const setPub=v=>{subj='';PSET=new Set(v===''?[]:[+v]);syncPub();const h=v===''?'':'#e'+v;if(location.hash!==h&&!(h===''&&location.hash==='')){location.hash=h;}else{fromHash();run()}scrollTo(0,0)};

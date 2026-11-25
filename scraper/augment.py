@@ -22,8 +22,6 @@ added=0
 for name,ilha in sorted(M.items(),key=lambda kv:n(kv[0])):
     if name in used: continue
     D['pubs'].append({'n':name,'logo':'','pdf':'','site':'','c':0,'mo':1,'g':GROUP.get(name,'')});pub2map[len(D['pubs'])-1]=name;added+=1
-PI={str(i):M[v] for i,v in pub2map.items()}
 for i,v in pub2map.items(): D['pubs'][i]['il']=M[v]
 json.dump(D,open(OUT_DATA,'w'),ensure_ascii=False,separators=(',',':'))
-json.dump(PI,open(CACHE+'/maps/pub_ilha.json','w'))
-print('pubs',len(D['pubs']),'só no mapa',added,'com local',len(PI))
+print('pubs',len(D['pubs']),'só no mapa',added,'com local',len(pub2map))
