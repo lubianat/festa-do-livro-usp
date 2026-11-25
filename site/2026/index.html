@@ -315,9 +315,7 @@ function renderBook(){
   if(SEM){const c=cosAll(docvec(b.ix));const ids=[...c.keys()].filter(i=>i!==b.ix).sort((i,j)=>c[j]-c[i]).slice(0,12);
     sim=`<h3 class="h3">Livros parecidos</h3>`+ids.map(i=>card(R[i])).join('')}
   else sim=`<p class="s" style="grid-column:1/-1">Carregando livros parecidos…</p>`;
-  const gb=b.i?`https://books.google.com/books?vid=ISBN${encodeURIComponent(b.i)}`:`https://www.google.com/search?tbm=bks&q=${encodeURIComponent(b.t+' '+b.a)}`;
   const az=`https://www.amazon.com.br/s?k=${encodeURIComponent(b.i||b.t+' '+b.a)}`;
-  const ol=b.i?`https://openlibrary.org/isbn/${encodeURIComponent(b.i)}`:`https://openlibrary.org/search?q=${encodeURIComponent(b.t+' '+b.a)}`;
   $('g').innerHTML=`<section class="page"><div>
     <div class="row top"><button class="back" id="bk">← voltar</button><button class="favbig${isFav(b)?' on':''}" data-fav="${b.ix}">${isFav(b)?'★ Nos favoritos':'☆ Salvar nos favoritos'}</button></div><button class="p" data-p="${b.p}">${esc(p.n)}</button> ${badge(b.p)}
     <div style="display:flex;gap:16px;align-items:flex-start;margin-top:8px">${coverTag(b,true)}<h2 style="margin-top:0">${esc(b.t)}</h2></div>
@@ -325,7 +323,7 @@ function renderBook(){
     ${b.s?`<div><span class="lab">Assunto </span>${esc(b.s)}</div>`:''}
     ${b.i?`<div><span class="lab">ISBN </span><button class="cp" data-i="${esc(b.i)}">${esc(b.i)}</button></div>`:''}</div>
     <div class="big">${tagHTML(b)}${b.d?` <span class="s">${Math.round(b.d*100)}% de desconto na Festa</span>`:''}</div>
-    <div class="lk"><a href="${esc(ol)}" target="_blank" rel="noopener">ver na Open Library ↗</a><a href="${esc(gb)}" target="_blank" rel="noopener">ver no Google Books ↗</a><a href="${esc(az)}" target="_blank" rel="noopener">buscar na Amazon ↗</a>${/^https?:/.test(b.u)?`<a href="${esc(b.u)}" target="_blank" rel="noopener">página do livro ↗</a>`:''}<a href="${esc(p.pdf)}" target="_blank" rel="noopener">lista de preços (PDF) ↗</a></div>
+    <div class="lk">${b.i?`<a href="https://openlibrary.org/isbn/${encodeURIComponent(b.i)}" target="_blank" rel="noopener">ver na Open Library ↗</a>`:''}<a href="${esc(az)}" target="_blank" rel="noopener">buscar na Amazon ↗</a>${/^https?:/.test(b.u)?`<a href="${esc(b.u)}" target="_blank" rel="noopener">página do livro ↗</a>`:''}<a href="${esc(p.pdf)}" target="_blank" rel="noopener">lista de preços (PDF) ↗</a></div>
   </div><div>${n?`<p class="s" style="margin:0 0 6px;font-weight:700">Onde fica na Festa</p>`+mapHTML(n):''}</div></section>${sim}`;
   document.title=b.t+' · Festa do Livro USP 2026';
 }
@@ -347,7 +345,7 @@ function run(){
   let thr=1;
   if(cos){const tmp=Array.from(cos).sort((a,b)=>b-a);thr=simTo!=null?tmp[Math.min(80,tmp.length-1)]:Math.max(.55,tmp[0]-.22,tmp[Math.min(250,tmp.length-1)])}
   $('near').innerHTML='';$('tema').classList.toggle('on',semOnly);$('srch').classList.toggle('on',!semOnly);
-  $('temas').innerHTML=(!ws.length&&!PSET.size&&simTo==null)?'<span class="lead">Digite um título, autor ou assunto acima, ou comece por um tema. <b>Dica:</b> use aspas, como <code>"mar"</code>, para buscar só a palavra exata (sem “mares”, “maré” nem temas parecidos).</span>'+TEMAS.map(t=>`<button data-t="${esc(t)}">${esc(t)}</button>`).join(''):'';
+  $('temas').innerHTML=(!ws.length&&!PSET.size&&simTo==null)?'<span class="lead">Digite um título, autor ou assunto acima, ou comece por um tema. <b>Dica:</b> <code>"mar"</code> entre aspas busca só a palavra exata.</span>'+TEMAS.map(t=>`<button data-t="${esc(t)}">${esc(t)}</button>`).join(''):'';
   if(semOnly&&ws.length){
     if(!SEM){$('g').innerHTML='<p class="empty">Carregando a busca por tema… tente de novo em alguns segundos.</p>';$('cnt').textContent='';return}
     const v=qvec(ws);
