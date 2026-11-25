@@ -57,6 +57,8 @@ def uninvert(t):
     m=ART.match(t)
     if m and len(m.group(1))>2: return m.group(2).capitalize()+' '+m.group(1)
     return t
+# ponytail: hand-fixed rows where the PDF swaps title and author; a sort-order heuristic could catch more (~50 found)
+SWAP={'9788594933065'}  # Aves no Sesc Bertioga
 pubs=[];rows=[]
 for k,v in sorted(D.items(),key=lambda kv:P[kv[0]]['name'].lower()):
     p=P[k];name=html.unescape(p['name']).strip()
@@ -68,6 +70,7 @@ for k,v in sorted(D.items(),key=lambda kv:P[kv[0]]['name'].lower()):
         if not title or len(title)<2: continue
         au=tcase(clean_author(strip_pub(bad(kern(fixmoji(r['author'])),name),names),name));su=tcase(bad(fixmoji(r['subject']),name))
         if title and au and NAMEPAT.match(title) and not NAMEPAT.match(au) and ',' not in au: title,au=uninvert(au),title
+        if r['isbn'] in SWAP: title,au=au,title
         if su==title: su=''
         if au==title: au=''
         rows.append([i,title,au,su,r['isbn'] if len(r['isbn'])>=10 else '',r['price'],r['orig'],r['url']])
