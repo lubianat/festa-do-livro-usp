@@ -190,7 +190,12 @@ async function coverFail(img){const i=img.dataset.isbn,st=img.dataset.st;let ok=
   if(ok&&st!=='g')CV[i]='';else delete CV[i];cvStore();
   const d=document.createElement('div');d.className=img.className;d.innerHTML=noCover(i,img.classList.contains('big'));img.replaceWith(d)}
 // after adding a cover on OL, forget our cached "sem capa" so the next visit re-checks
-document.addEventListener('click',e=>{const a=e.target.closest('a.addcv');if(a){delete CV[a.dataset.cv];cvStore()}});
+// if OL has no edition for this ISBN, send the visitor to a prefilled "add book" form instead
+// ponytail: prefill param names follow OL's /books/add form; unknown ones are just ignored
+document.addEventListener('click',e=>{const a=e.target.closest('a.addcv');if(!a)return;const i=a.dataset.cv;delete CV[i];cvStore();
+  e.preventDefault();const w=window.open('about:blank','_blank');const b=R[bookIx]||{};
+  const add='https://openlibrary.org/books/add?'+new URLSearchParams({title:b.t||'',author_name:b.a||'',publisher:(P[b.p]||{}).n||'',id_name:i.length===13?'isbn_13':'isbn_10',id_value:i});
+  fetch('https://openlibrary.org/isbn/'+encodeURIComponent(i)+'.json').then(r=>r.ok?a.href:add,()=>a.href).then(u=>{if(w)w.location=u;else location.href=u})});
 document.addEventListener('load',e=>{const t=e.target;if(t.tagName==='IMG'&&t.dataset.isbn&&t.dataset.st==='ol'&&t.naturalWidth>2){CV[t.dataset.isbn]=t.src;cvStore()}},true);
 document.addEventListener('error',e=>{const t=e.target;if(t.tagName==='IMG'&&t.dataset.isbn)coverFail(t)},true);
 let PSET=new Set(),psAct=0,psList=[];
@@ -230,8 +235,9 @@ function renderFavs(){
 let P=[],R=[],VOC=null,res=[],shown=0,terms=[],subj='',SEM=null,simTo=null;const STEP=40;
 function lev(a,b,max){if(Math.abs(a.length-b.length)>max)return max+1;let p=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){const c=[i];let mn=i;for(let j=1;j<=b.length;j++){c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));if(c[j]<mn)mn=c[j]}if(mn>max)return max+1;p=c}return p[b.length]}
 function vocab(){if(VOC)return VOC;const m=new Map();for(const r of R)for(const w of (r.T+r.A+r.S).split(' '))if(w.length>=3)m.set(w,(m.get(w)||0)+1);VOC=[...m];return VOC}
+let QUOTED=false; // ponytail: any " in the query makes the whole query literal, per-word quoting if anyone asks
 function variants(q,force){
-  if($('exact').checked)return [{w:q,k:1}];
+  if($('exact').checked||QUOTED)return [{w:q,k:1}];
   // exact first; if rare, add close spellings from the vocabulary
   const v=[{w:q,k:1}];if(q.length<4||/^\d+$/.test(q))return v;
   let hits=0;for(const r of R){if(r.K.includes(q)&&++hits>=3)break}
@@ -248,7 +254,7 @@ function scoreRow(r,ts,phrase){
   let tot=0;
   for(const vs of ts){let best=0;
     for(const {w,k} of vs){let s=0;
-      if(w.length<=3){if(r.T.includes(' '+w+' ')||r.T.includes(' '+w+'s '))s=10;else if(r.A.includes(' '+w+' '))s=7;else if(r.S.includes(' '+w+' '))s=3;else if(r.P.includes(' '+w+' '))s=2;s*=k;if(s>best)best=s;continue}
+      if(w.length<=3||QUOTED){if(r.T.includes(' '+w+' ')||r.T.includes(' '+w+'s '))s=10;else if(r.A.includes(' '+w+' '))s=7;else if(r.S.includes(' '+w+' '))s=3;else if(r.P.includes(' '+w+' '))s=2;s*=k;if(s>best)best=s;continue}
       if(r.T.includes(' '+w))s=10;else if(r.T.includes(w))s=5;
       if(r.A.includes(' '+w))s=Math.max(s,7);else if(s<3&&r.A.includes(w))s=3;
       if(s<3&&r.S.includes(w))s=3;if(s<2&&r.P.includes(w))s=2;
@@ -310,6 +316,7 @@ function renderBook(){
     sim=`<h3 class="h3">Livros parecidos</h3>`+ids.map(i=>card(R[i])).join('')}
   else sim=`<p class="s" style="grid-column:1/-1">Carregando livros parecidos…</p>`;
   const gb=b.i?`https://books.google.com/books?vid=ISBN${encodeURIComponent(b.i)}`:`https://www.google.com/search?tbm=bks&q=${encodeURIComponent(b.t+' '+b.a)}`;
+  const az=`https://www.amazon.com.br/s?k=${encodeURIComponent(b.i||b.t+' '+b.a)}`;
   const ol=b.i?`https://openlibrary.org/isbn/${encodeURIComponent(b.i)}`:`https://openlibrary.org/search?q=${encodeURIComponent(b.t+' '+b.a)}`;
   $('g').innerHTML=`<section class="page"><div>
     <div class="row top"><button class="back" id="bk">← voltar</button><button class="favbig${isFav(b)?' on':''}" data-fav="${b.ix}">${isFav(b)?'★ Nos favoritos':'☆ Salvar nos favoritos'}</button></div><button class="p" data-p="${b.p}">${esc(p.n)}</button> ${badge(b.p)}
@@ -318,7 +325,7 @@ function renderBook(){
     ${b.s?`<div><span class="lab">Assunto </span>${esc(b.s)}</div>`:''}
     ${b.i?`<div><span class="lab">ISBN </span><button class="cp" data-i="${esc(b.i)}">${esc(b.i)}</button></div>`:''}</div>
     <div class="big">${tagHTML(b)}${b.d?` <span class="s">${Math.round(b.d*100)}% de desconto na Festa</span>`:''}</div>
-    <div class="lk"><a href="${esc(ol)}" target="_blank" rel="noopener">ver na Open Library ↗</a><a href="${esc(gb)}" target="_blank" rel="noopener">ver no Google Books ↗</a>${/^https?:/.test(b.u)?`<a href="${esc(b.u)}" target="_blank" rel="noopener">página do livro ↗</a>`:''}<a href="${esc(p.pdf)}" target="_blank" rel="noopener">lista de preços (PDF) ↗</a></div>
+    <div class="lk"><a href="${esc(ol)}" target="_blank" rel="noopener">ver na Open Library ↗</a><a href="${esc(gb)}" target="_blank" rel="noopener">ver no Google Books ↗</a><a href="${esc(az)}" target="_blank" rel="noopener">buscar na Amazon ↗</a>${/^https?:/.test(b.u)?`<a href="${esc(b.u)}" target="_blank" rel="noopener">página do livro ↗</a>`:''}<a href="${esc(p.pdf)}" target="_blank" rel="noopener">lista de preços (PDF) ↗</a></div>
   </div><div>${n?`<p class="s" style="margin:0 0 6px;font-weight:700">Onde fica na Festa</p>`+mapHTML(n):''}</div></section>${sim}`;
   document.title=b.t+' · Festa do Livro USP 2026';
 }
@@ -326,21 +333,21 @@ function run(){
   if(view==='book'){renderBook();return}
   if(view==='favs'){renderFavs();return}
   document.title='Catálogo da 28ª Festa do Livro da USP (2026)';
-  const raw=$('q').value,qn=qnorm(raw.replace(/(\d)-(?=\d)/g,'$1'));
+  const raw=$('q').value;QUOTED=/["“”]/.test(raw);const qn=qnorm(raw.replace(/(\d)-(?=\d)/g,'$1'));
   let ws=qn.split(' ').filter(Boolean);const content=ws.filter(w=>!STOP.has(w)&&(w.length>1||/\d/.test(w)));if(content.length)ws=content;
   const core=ws.filter(w=>!FILL.has(w));if(core.length)ws=core;
   const pi=$('pub').value,mx=parseFloat($('max').value)||Infinity,so=$('sort').value;
   terms=ws.map(variants);
 
   const phrase=ws.length>1?qn:'';
-  const semOn=$('semon').checked&&!$('exact').checked&&SEM;
+  const semOn=$('semon').checked&&!$('exact').checked&&!QUOTED&&SEM;
   let cos=null;
   if(simTo!=null&&SEM)cos=cosAll(docvec(simTo));
   else if(semOn&&ws.length){const v=qvec(ws);if(v)cos=cosAll(v)}
   let thr=1;
   if(cos){const tmp=Array.from(cos).sort((a,b)=>b-a);thr=simTo!=null?tmp[Math.min(80,tmp.length-1)]:Math.max(.55,tmp[0]-.22,tmp[Math.min(250,tmp.length-1)])}
   $('near').innerHTML='';$('tema').classList.toggle('on',semOnly);$('srch').classList.toggle('on',!semOnly);
-  $('temas').innerHTML=(!ws.length&&!PSET.size&&simTo==null)?'<span class="lead">Digite um título, autor ou assunto acima, ou comece por um tema:</span>'+TEMAS.map(t=>`<button data-t="${esc(t)}">${esc(t)}</button>`).join(''):'';
+  $('temas').innerHTML=(!ws.length&&!PSET.size&&simTo==null)?'<span class="lead">Digite um título, autor ou assunto acima, ou comece por um tema. <b>Dica:</b> use aspas, como <code>"mar"</code>, para buscar só a palavra exata (sem “mares”, “maré” nem temas parecidos).</span>'+TEMAS.map(t=>`<button data-t="${esc(t)}">${esc(t)}</button>`).join(''):'';
   if(semOnly&&ws.length){
     if(!SEM){$('g').innerHTML='<p class="empty">Carregando a busca por tema… tente de novo em alguns segundos.</p>';$('cnt').textContent='';return}
     const v=qvec(ws);
@@ -370,7 +377,7 @@ function run(){
     if(nl){const semTop=Math.max(0,...res.filter(b=>b.sem).map(b=>cos[b.ix]));
       const t2=nl>=10?Math.max(.78,semTop-.08):nl>=3?Math.max(.7,semTop-.15):.6;
       let k=0;const cap=nl>=10?40:120;res=res.filter(b=>!b.sem||(cos[b.ix]>=t2&&++k<=cap))}}
-  if(!res.some(b=>!b.sem)&&ws.length&&simTo==null&&!$('exact').checked){terms=ws.map(w=>variants(w,true));scan()}
+  if(!res.some(b=>!b.sem)&&ws.length&&simTo==null&&!$('exact').checked&&!QUOTED){terms=ws.map(w=>variants(w,true));scan()}
   const pn=x=>x.v??x.o??1e9;
   if(so==='pa')res.sort((a,b)=>pn(a)-pn(b));else if(so==='pd')res.sort((a,b)=>(b.v??b.o??-1)-(a.v??a.o??-1));
   else if(so==='d')res.sort((a,b)=>b.d-a.d||pn(a)-pn(b));else if(so==='t')res.sort((a,b)=>a.T.localeCompare(b.T));
@@ -381,7 +388,7 @@ function run(){
   const top=res[0];
   const fz=top?terms.filter(vs=>vs.length>1&&!top.K.includes(vs[0].w)).map(vs=>(vs.find(x=>x.fz&&top.K.includes(x.w))||{}).fz).filter(Boolean):[];
   const exactMiss=fz.length>0;
-  $('dym').innerHTML=$('exact').checked?`busca exata · <button id="exactoff">incluir grafias parecidas</button>`:exactMiss&&fz.length?`incluindo grafias parecidas (${esc(fz.join(', '))}) · <button id="exactb">buscar só o que digitei</button>`:'';
+  $('dym').innerHTML=QUOTED?'busca literal (entre aspas)':$('exact').checked?`busca exata · <button id="exactoff">incluir grafias parecidas</button>`:exactMiss&&fz.length?`incluindo grafias parecidas (${esc(fz.join(', '))}) · <button id="exactb">buscar só o que digitei</button>`:'';
   $('clr').hidden=!(ws.length||PSET.size||mx<Infinity||subj||simTo!=null);$('qx').hidden=!raw;
   chips();
   const ph=$('ph');
