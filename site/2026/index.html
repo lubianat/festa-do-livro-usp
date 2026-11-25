@@ -201,8 +201,8 @@ async function coverFail0(img){const i=img.dataset.isbn,st=img.dataset.st;let ok
 document.addEventListener('click',e=>{const a=e.target.closest('a.addcv');if(!a)return;const i=a.dataset.cv;delete CV[i];cvStore();
   e.preventDefault();const w=window.open('about:blank','_blank');const b=R[bookIx]||{};
   const add='https://openlibrary.org/books/add?'+new URLSearchParams({title:b.t||'',author_name:b.a||'',publisher:(P[b.p]||{}).n||'',id_name:i.length===13?'isbn_13':'isbn_10',id_value:i});
-  // /isbn/X.json can't tell: OL auto-imports unknown ISBNs and returns 200, so ask the search index instead
-  fetch('https://openlibrary.org/search.json?fields=key&limit=1&isbn='+encodeURIComponent(i),{signal:AbortSignal.timeout(8000)}).then(r=>r.json()).then(j=>j.numFound?a.href:add,()=>a.href).then(u=>{if(w)w.location=u;else location.href=u})});
+  // try the ISBN; 404 -> prefilled add form; network error/timeout -> plain ISBN page
+  fetch('https://openlibrary.org/isbn/'+encodeURIComponent(i)+'.json',{signal:AbortSignal.timeout(8000)}).then(r=>r.status===404?add:a.href,()=>a.href).then(u=>{if(w)w.location=u;else location.href=u})});
 document.addEventListener('load',e=>{const t=e.target;if(t.tagName==='IMG'&&t.dataset.isbn&&t.dataset.st==='ol'&&t.naturalWidth>2){CV[t.dataset.isbn]=t.src;cvStore()}},true);
 document.addEventListener('error',e=>{const t=e.target;if(t.tagName==='IMG'&&t.dataset.isbn)coverFail(t)},true);
 let PSET=new Set(),psAct=0,psList=[];
@@ -344,7 +344,7 @@ function renderBook(){
     ${b.s?`<div><span class="lab">Assunto </span>${esc(b.s)}</div>`:''}
     ${b.i?`<div><span class="lab">ISBN </span><button class="cp" data-i="${esc(b.i)}">${esc(b.i)}</button></div>`:''}</div>
     <div class="big">${tagHTML(b)}${b.d?` <span class="s">${Math.round(b.d*100)}% de desconto na Festa</span>`:''}</div>
-    <div class="lk">${b.i?`<a href="https://openlibrary.org/isbn/${encodeURIComponent(b.i)}" target="_blank" rel="noopener">ver na Open Library ↗</a>`:''}<a href="${esc(az)}" target="_blank" rel="noopener">buscar na Amazon ↗</a>${/^https?:/.test(b.u)?`<a href="${esc(b.u)}" target="_blank" rel="noopener">página do livro ↗</a>`:''}<a href="${esc(p.pdf)}" target="_blank" rel="noopener">lista de preços (PDF) ↗</a></div>
+    <div class="lk">${b.i?`<a class="addcv" data-cv="${esc(b.i)}" href="https://openlibrary.org/isbn/${encodeURIComponent(b.i)}" target="_blank" rel="noopener">ver na Open Library ↗</a>`:''}<a href="${esc(az)}" target="_blank" rel="noopener">buscar na Amazon ↗</a>${/^https?:/.test(b.u)?`<a href="${esc(b.u)}" target="_blank" rel="noopener">página do livro ↗</a>`:''}<a href="${esc(p.pdf)}" target="_blank" rel="noopener">lista de preços (PDF) ↗</a></div>
   </div><div>${n?`<p class="s" style="margin:0 0 6px;font-weight:700">Onde fica na Festa</p>`+mapHTML(n):''}</div></section>${sim}`;
   document.title=b.t+' · Festa do Livro USP 2026';
 }
