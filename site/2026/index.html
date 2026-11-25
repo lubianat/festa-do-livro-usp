@@ -195,7 +195,8 @@ async function coverFail(img){const i=img.dataset.isbn,st=img.dataset.st;let ok=
 document.addEventListener('click',e=>{const a=e.target.closest('a.addcv');if(!a)return;const i=a.dataset.cv;delete CV[i];cvStore();
   e.preventDefault();const w=window.open('about:blank','_blank');const b=R[bookIx]||{};
   const add='https://openlibrary.org/books/add?'+new URLSearchParams({title:b.t||'',author_name:b.a||'',publisher:(P[b.p]||{}).n||'',id_name:i.length===13?'isbn_13':'isbn_10',id_value:i});
-  fetch('https://openlibrary.org/isbn/'+encodeURIComponent(i)+'.json').then(r=>r.ok?a.href:add,()=>a.href).then(u=>{if(w)w.location=u;else location.href=u})});
+  // /isbn/X.json can't tell: OL auto-imports unknown ISBNs and returns 200, so ask the search index instead
+  fetch('https://openlibrary.org/search.json?fields=key&limit=1&isbn='+encodeURIComponent(i),{signal:AbortSignal.timeout(8000)}).then(r=>r.json()).then(j=>j.numFound?a.href:add,()=>a.href).then(u=>{if(w)w.location=u;else location.href=u})});
 document.addEventListener('load',e=>{const t=e.target;if(t.tagName==='IMG'&&t.dataset.isbn&&t.dataset.st==='ol'&&t.naturalWidth>2){CV[t.dataset.isbn]=t.src;cvStore()}},true);
 document.addEventListener('error',e=>{const t=e.target;if(t.tagName==='IMG'&&t.dataset.isbn)coverFail(t)},true);
 let PSET=new Set(),psAct=0,psList=[];
